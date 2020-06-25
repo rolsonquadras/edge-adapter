@@ -35,7 +35,7 @@ const (
 	profileEndpoint                 = "/profile"
 	getProfileEndpoint              = profileEndpoint + "/{id}"
 	walletConnectEndpoint           = "/{id}/connect/wallet"
-	generateInvitationEndpoint      = didCommBasePath + "/invitation"
+	didcommCHAPIReqEndpoint         = didCommBasePath + "/chapi"
 	validateConnectResponseEndpoint = "/connect/validate"
 
 	// http params
@@ -127,7 +127,7 @@ func (o *Operation) GetRESTHandlers() []Handler {
 		// didcomm
 		support.NewHTTPHandler(walletConnectEndpoint, http.MethodGet, o.walletConnectHandler),
 		support.NewHTTPHandler(validateConnectResponseEndpoint, http.MethodPost, o.validateWalletResponseHandler),
-		support.NewHTTPHandler(generateInvitationEndpoint, http.MethodGet, o.generateInvitationHandler),
+		support.NewHTTPHandler(didcommCHAPIReqEndpoint, http.MethodGet, o.didcommCHAPIReqHandler),
 	}
 }
 
@@ -268,7 +268,7 @@ func (o *Operation) validateWalletResponseHandler(rw http.ResponseWriter, req *h
 	commhttp.WriteResponse(rw, &ValidateConnectResp{RedirectURL: redirectURL})
 }
 
-func (o *Operation) generateInvitationHandler(rw http.ResponseWriter, req *http.Request) {
+func (o *Operation) didcommCHAPIReqHandler(rw http.ResponseWriter, req *http.Request) {
 	// get the txnID
 	txnID := req.URL.Query().Get(txnIDQueryParam)
 
@@ -286,7 +286,10 @@ func (o *Operation) generateInvitationHandler(rw http.ResponseWriter, req *http.
 		return
 	}
 
-	commhttp.WriteResponse(rw, txnData.DIDCommInvitation)
+	commhttp.WriteResponse(rw, &WalletConnectRequest{
+		Challenge:         txnData.Challenge,
+		DIDCommInvitation: txnData.DIDCommInvitation,
+	})
 }
 
 func (o *Operation) validateAndGetConnection(connectData *issuervc.DIDConnectCredentialSubject) (*connection.Record, error) { // nolint: lll
@@ -325,6 +328,7 @@ func (o *Operation) createTxn(profileID, state string) (string, error) {
 	data := &txnData{
 		IssuerID:          profileID,
 		State:             state,
+		Challenge:         uuid.New().String(),
 		DIDCommInvitation: invitation,
 	}
 

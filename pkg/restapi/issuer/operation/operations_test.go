@@ -598,17 +598,17 @@ func TestGenerateInvitation(t *testing.T) {
 		txnID, err := c.createTxn("profile1", uuid.New().String())
 		require.NoError(t, err)
 
-		generateInvitationHandler := getHandler(t, c, generateInvitationEndpoint)
+		generateInvitationHandler := getHandler(t, c, didcommCHAPIReqEndpoint)
 
 		rr := serveHTTP(t, generateInvitationHandler.Handle(), http.MethodGet,
-			generateInvitationEndpoint+"?"+txnIDQueryParam+"="+txnID, nil)
+			didcommCHAPIReqEndpoint+"?"+txnIDQueryParam+"="+txnID, nil)
 
 		require.Equal(t, http.StatusOK, rr.Code)
 
-		invitation := &didexchange.Invitation{}
-		err = json.Unmarshal(rr.Body.Bytes(), &invitation)
+		req := &WalletConnectRequest{}
+		err = json.Unmarshal(rr.Body.Bytes(), &req)
 		require.NoError(t, err)
-		require.Equal(t, "https://didcomm.org/didexchange/1.0/invitation", invitation.Type)
+		require.Equal(t, "https://didcomm.org/didexchange/1.0/invitation", req.DIDCommInvitation.Type)
 	})
 
 	t.Run("test fetch invitation - no txnID in the url query", func(t *testing.T) {
@@ -618,9 +618,9 @@ func TestGenerateInvitation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		generateInvitationHandler := getHandler(t, c, generateInvitationEndpoint)
+		generateInvitationHandler := getHandler(t, c, didcommCHAPIReqEndpoint)
 
-		rr := serveHTTP(t, generateInvitationHandler.Handle(), http.MethodGet, generateInvitationEndpoint, nil)
+		rr := serveHTTP(t, generateInvitationHandler.Handle(), http.MethodGet, didcommCHAPIReqEndpoint, nil)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "failed to get txnID from the url")
@@ -633,10 +633,10 @@ func TestGenerateInvitation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		generateInvitationHandler := getHandler(t, c, generateInvitationEndpoint)
+		generateInvitationHandler := getHandler(t, c, didcommCHAPIReqEndpoint)
 
 		rr := serveHTTP(t, generateInvitationHandler.Handle(), http.MethodGet,
-			generateInvitationEndpoint+"?"+txnIDQueryParam+"=invalid-txnID", nil)
+			didcommCHAPIReqEndpoint+"?"+txnIDQueryParam+"=invalid-txnID", nil)
 
 		require.Equal(t, http.StatusBadRequest, rr.Code)
 		require.Contains(t, rr.Body.String(), "txn data not found")

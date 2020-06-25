@@ -19,6 +19,12 @@ type ProfileDataRequest struct {
 	CallbackURL string `json:"callbackURL"`
 }
 
+// WalletConnectRequest data to create CHAPI request.
+type WalletConnectRequest struct {
+	Challenge         string                  `json:"challenge,omitempty"`
+	DIDCommInvitation *didexchange.Invitation `json:"didCommInvitation,omitempty"`
+}
+
 // WalletConnect response from wallet.
 type WalletConnect struct {
 	Resp json.RawMessage `json:"walletResp,omitempty"`
@@ -28,6 +34,7 @@ type WalletConnect struct {
 type txnData struct {
 	IssuerID          string                  `json:"issuerID,omitempty"`
 	State             string                  `json:"state,omitempty"`
+	Challenge         string                  `json:"challenge,omitempty"`
 	DIDCommInvitation *didexchange.Invitation `json:"didCommInvitation,omitempty"`
 }
 
