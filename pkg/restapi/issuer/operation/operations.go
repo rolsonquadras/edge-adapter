@@ -149,9 +149,8 @@ func New(config *Config) (*Operation, error) {
 		vdriRegistry:       config.AriesCtx.VDRIRegistry(),
 		serviceEndpoint:    config.AriesCtx.ServiceEndpoint(),
 		vccrypto:           vccrypto,
-		// TODO build http client with certs
-		publicDIDCreator: config.PublicDIDCreator,
-		httpClient:       &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
+		publicDIDCreator:   config.PublicDIDCreator,
+		httpClient:         &http.Client{Transport: &http.Transport{TLSClientConfig: config.TLSConfig}},
 	}
 
 	go op.didCommActionListener(actionCh)
@@ -324,7 +323,7 @@ func (o *Operation) validateWalletResponseHandler(rw http.ResponseWriter, req *h
 		return
 	}
 
-	connectData, err := issuervc.ParseWalletResponse(connectResp.Resp)
+	connectData, err := issuervc.ParseWalletResponse(connectResp.Resp, o.vdriRegistry)
 	if err != nil {
 		commhttp.WriteErrorResponseWithLog(rw, http.StatusBadRequest,
 			fmt.Sprintf("failed to validate presentation: %s", err.Error()), validateConnectResponseEndpoint, logger)
@@ -614,7 +613,6 @@ func (o *Operation) handleRequestCredential(msg service.DIDCommAction) (interfac
 }
 
 func (o *Operation) handleRequestPresentation(msg service.DIDCommAction) (interface{}, error) {
-	// TODO https://github.com/trustbloc/edge-adapter/issues/139 validate the presentation request
 	consentCred, err := fetchConsentCred(msg, o.vdriRegistry)
 	if err != nil {
 		return nil, err

@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/util"
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
+	"github.com/hyperledger/aries-framework-go/pkg/framework/aries/api/vdri"
 
 	"github.com/trustbloc/edge-adapter/pkg/internal/common/adapterutil"
 	adaptervc "github.com/trustbloc/edge-adapter/pkg/vc"
@@ -72,9 +73,12 @@ func CreateManifestCredential(issuerName string, supportedContexts []string) ([]
 }
 
 // ParseWalletResponse parses VP received from the wallet and returns the DIDConnect response.
-func ParseWalletResponse(vpBytes []byte) (*DIDConnectCredentialSubject, error) {
-	// TODO https://github.com/trustbloc/edge-adapter/issues/87 validate the signature
-	pres, err := verifiable.ParsePresentation(vpBytes, verifiable.WithDisabledPresentationProofCheck())
+func ParseWalletResponse(vpBytes []byte, vdriRegistry vdri.Registry) (*DIDConnectCredentialSubject, error) {
+	pres, err := verifiable.ParsePresentation(
+		vpBytes,
+		verifiable.WithPresPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdriRegistry).PublicKeyFetcher()),
+		verifiable.WithDisabledPresentationProofCheck(),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("invalid presentation: %s", err.Error())
 	}
@@ -88,8 +92,10 @@ func ParseWalletResponse(vpBytes []byte) (*DIDConnectCredentialSubject, error) {
 		return nil, errors.New("there should be only one credential")
 	}
 
-	// TODO https://github.com/trustbloc/edge-adapter/issues/87 validate the signature
-	cred, err := verifiable.ParseCredential(rawCredentials[0], verifiable.WithDisabledProofCheck())
+	cred, err := verifiable.ParseCredential(
+		rawCredentials[0],
+		verifiable.WithPublicKeyFetcher(verifiable.NewDIDKeyResolver(vdriRegistry).PublicKeyFetcher()),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse credential : %s", err.Error())
 	}

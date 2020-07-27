@@ -7,10 +7,18 @@ SPDX-License-Identifier: Apache-2.0
 package issuer
 
 import (
+	"crypto/ed25519"
+	"crypto/rand"
 	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite"
+	"github.com/hyperledger/aries-framework-go/pkg/doc/signature/suite/ed25519signature2018"
 
 	"github.com/hyperledger/aries-framework-go/pkg/doc/verifiable"
 	mockdiddoc "github.com/hyperledger/aries-framework-go/pkg/mock/diddoc"
+	mockvdri "github.com/hyperledger/aries-framework-go/pkg/mock/vdri"
 	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/edge-adapter/pkg/internal/common/adapterutil"
@@ -72,8 +80,12 @@ func TestCreateManifestCredential(t *testing.T) {
 }
 
 func TestParseWalletResponse(t *testing.T) {
+	vdri := &mockvdri.MockVDRIRegistry{
+		ResolveValue: mockdiddoc.GetMockDIDDoc(),
+	}
+
 	t.Run("test parse wallet - success", func(t *testing.T) {
-		conn, err := ParseWalletResponse(getTestVP(t))
+		conn, err := ParseWalletResponse(getTestVP(t), vdri)
 		require.NoError(t, err)
 		require.NotNil(t, conn)
 
@@ -86,7 +98,7 @@ func TestParseWalletResponse(t *testing.T) {
 	})
 
 	t.Run("test parse wallet - invalid vp", func(t *testing.T) {
-		conn, err := ParseWalletResponse([]byte("invalid json"))
+		conn, err := ParseWalletResponse([]byte("invalid json"), vdri)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "invalid presentation")
 		require.Nil(t, conn)
@@ -100,7 +112,7 @@ func TestParseWalletResponse(t *testing.T) {
 		vpJSON, err := vp.MarshalJSON()
 		require.NoError(t, err)
 
-		conn, err := ParseWalletResponse(vpJSON)
+		conn, err := ParseWalletResponse(vpJSON, vdri)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "there should be only one credential")
 		require.Nil(t, conn)
@@ -118,7 +130,7 @@ func TestParseWalletResponse(t *testing.T) {
 		vpJSON, err := vp.MarshalJSON()
 		require.NoError(t, err)
 
-		conn, err := ParseWalletResponse(vpJSON)
+		conn, err := ParseWalletResponse(vpJSON, vdri)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to parse credential")
 		require.Nil(t, conn)
@@ -136,7 +148,7 @@ func TestParseWalletResponse(t *testing.T) {
 		vpJSON, err := vp.MarshalJSON()
 		require.NoError(t, err)
 
-		conn, err := ParseWalletResponse(vpJSON)
+		conn, err := ParseWalletResponse(vpJSON, vdri)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "vc doesn't contain DIDConnection type")
 		require.Nil(t, conn)
@@ -187,8 +199,38 @@ func getTestVP(t *testing.T) []byte {
 	vp, err := vc.Presentation()
 	require.NoError(t, err)
 
+	addLDProof(t, vp)
+
 	vpJSON, err := vp.MarshalJSON()
 	require.NoError(t, err)
 
 	return vpJSON
+}
+
+func addLDProof(t *testing.T, vp *verifiable.Presentation) {
+	t.Helper()
+
+	_, secretKey, err := ed25519.GenerateKey(rand.Reader)
+	require.NoError(t, err)
+
+	now := time.Now()
+	err = vp.AddLinkedDataProof(&verifiable.LinkedDataProofContext{
+		VerificationMethod:      "did:example:123",
+		SignatureRepresentation: verifiable.SignatureJWS,
+		SignatureType:           "Ed25519Signature2018",
+		Suite:                   ed25519signature2018.New(suite.WithSigner(&testSigner{privKey: secretKey})),
+		Created:                 &now,
+		Domain:                  "user.example.com",
+		Challenge:               uuid.New().String(),
+		Purpose:                 "authentication",
+	})
+	require.NoError(t, err)
+}
+
+type testSigner struct {
+	privKey []byte
+}
+
+func (t *testSigner) Sign(plaintext []byte) ([]byte, error) {
+	return ed25519.Sign(t.privKey, plaintext), nil
 }
